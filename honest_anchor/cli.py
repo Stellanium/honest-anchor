@@ -42,7 +42,7 @@ ANCHOR_DIR = ".anchor"
 CONFIG_FILE = "config.yml"
 REGISTRY_FILE = "registry.json"
 PROOFS_DIR = "proofs"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 console = Console() if RICH_AVAILABLE else None
 
@@ -305,19 +305,37 @@ license: ""
     rprint("  2. Run: anchor commit <file>")
 
 
+def get_staged_files() -> List[str]:
+    """Get list of files staged in git."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+            # Filter only existing files (not deleted)
+            return [f for f in files if Path(f).exists()]
+        return []
+    except FileNotFoundError:
+        return []
+
+
 @cli.command()
 @click.argument("files", nargs=-1, type=click.Path(exists=True))
 @click.option("--all", "-a", "anchor_all", is_flag=True, help="Anchor all files matching config patterns")
+@click.option("--staged", "-s", is_flag=True, help="Anchor all files staged in git")
 @click.option("--message", "-m", help="Add a note to this anchor")
-def commit(files, anchor_all, message):
+def commit(files, anchor_all, staged, message):
     """Timestamp file(s) to Bitcoin."""
     anchor_dir = get_anchor_dir()
 
     if not anchor_dir.exists():
         error_exit("Not an anchor repository. Run 'anchor init' first.")
 
-    if not files and not anchor_all:
-        error_exit("Usage: anchor commit <file> or anchor commit --all")
+    if not files and not anchor_all and not staged:
+        error_exit("Usage: anchor commit <file> or anchor commit --all or anchor commit --staged")
 
     # Check OTS is installed
     if not check_ots_installed():
@@ -327,7 +345,14 @@ def commit(files, anchor_all, message):
     proofs_dir = anchor_dir / PROOFS_DIR
 
     # Get files to anchor
-    if anchor_all:
+    if staged:
+        staged_files = get_staged_files()
+        if not staged_files:
+            rprint("[yellow]No staged files to anchor.[/yellow]" if RICH_AVAILABLE else "No staged files to anchor.")
+            return
+        files_to_anchor = staged_files
+        rprint(f"Found {len(files_to_anchor)} staged files...")
+    elif anchor_all:
         auto_files = get_files_to_anchor(anchor_dir)
         if not auto_files:
             warn("No files match auto_anchor patterns in config.yml")
