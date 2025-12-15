@@ -1,5 +1,10 @@
 # ⚓ Honest Anchor
 
+[![CI](https://github.com/Stellanium/honest-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/Stellanium/honest-anchor/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/honest-anchor.svg)](https://pypi.org/project/honest-anchor/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE-AGPL)
+
 **git commit, but to the universe.**
 
 Your code, carved in Bitcoin. Permanent. Public. Provable.
