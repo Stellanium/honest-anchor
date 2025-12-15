@@ -17,6 +17,7 @@ from honest_anchor.cli import (
     load_registry,
     save_registry,
     get_anchor_dir,
+    get_staged_files,
     ANCHOR_DIR,
     REGISTRY_FILE,
     PROOFS_DIR,
@@ -200,3 +201,95 @@ class TestCliHelp:
 
         assert result.exit_code == 0
         assert "0.1.1" in result.output
+
+
+class TestGetStagedFiles:
+    """Tests for get_staged_files function."""
+
+    @patch('honest_anchor.cli.subprocess.run')
+    def test_get_staged_files_with_files(self, mock_run, tmp_path):
+        """Test getting staged files from git."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="file1.py\nfile2.py\n"
+        )
+
+        with CliRunner().isolated_filesystem(temp_dir=tmp_path):
+            # Create the files so they pass the exists() check
+            Path("file1.py").write_text("print(1)")
+            Path("file2.py").write_text("print(2)")
+
+            result = get_staged_files()
+
+            assert result == ["file1.py", "file2.py"]
+            mock_run.assert_called_once()
+
+    @patch('honest_anchor.cli.subprocess.run')
+    def test_get_staged_files_empty(self, mock_run):
+        """Test with no staged files."""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=""
+        )
+
+        result = get_staged_files()
+
+        assert result == []
+
+    @patch('honest_anchor.cli.subprocess.run')
+    def test_get_staged_files_git_not_found(self, mock_run):
+        """Test when git is not installed."""
+        mock_run.side_effect = FileNotFoundError()
+
+        result = get_staged_files()
+
+        assert result == []
+
+
+class TestCliCommitStaged:
+    """Tests for anchor commit --staged command."""
+
+    def test_commit_staged_no_files(self, tmp_path):
+        """Test --staged with no staged files."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            runner.invoke(cli, ['init'])
+
+            with patch('honest_anchor.cli.get_staged_files', return_value=[]):
+                result = runner.invoke(cli, ['commit', '--staged'])
+
+            assert "No staged files" in result.output
+
+    @patch('honest_anchor.cli.run_ots_command')
+    @patch('honest_anchor.cli.get_staged_files')
+    def test_commit_staged_success(self, mock_staged, mock_ots, tmp_path):
+        """Test successful --staged commit."""
+        mock_ots.return_value = (True, "Success")
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            runner.invoke(cli, ['init'])
+
+            # Create test file
+            Path("staged.py").write_text("print('staged')")
+            mock_staged.return_value = ["staged.py"]
+
+            # Create fake .ots file
+            Path("staged.py.ots").write_bytes(b"fake ots proof")
+
+            result = runner.invoke(cli, ['commit', '--staged'])
+
+            assert "staged" in result.output.lower() or "Anchoring" in result.output
+
+    def test_commit_staged_short_flag(self, tmp_path):
+        """Test -s short flag for --staged."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            runner.invoke(cli, ['init'])
+
+            with patch('honest_anchor.cli.get_staged_files', return_value=[]):
+                result = runner.invoke(cli, ['commit', '-s'])
+
+            assert "No staged files" in result.output
