@@ -1,4 +1,0 @@
-build
-dist
-honest_anchor
-tests
