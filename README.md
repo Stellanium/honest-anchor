@@ -161,14 +161,55 @@ email: "you@example.com"
 
 ## Git Integration
 
-Add to `.git/hooks/pre-commit`:
+**Git tracks WHAT. Anchor proves WHEN. Together = complete proof.**
 
-```bash
-#!/bin/bash
-anchor commit --all --staged
+```
+git commit   → saves your changes locally
+anchor commit → proves they existed at this moment
+
+git + anchor = WHAT you did + WHEN you did it
 ```
 
-Now every commit automatically carves your code in Bitcoin.
+### Automatic Anchoring (Pre-commit Hook)
+
+Every git commit automatically carves your code in Bitcoin:
+
+```bash
+# Create the hook
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/bash
+# Anchor all staged files to Bitcoin before committing
+anchor commit --all --staged
+
+# Optional: fail commit if anchoring fails
+# exit $?
+EOF
+
+# Make it executable
+chmod +x .git/hooks/pre-commit
+```
+
+### Alternative: Post-commit Hook
+
+Anchor after the commit (doesn't block your workflow):
+
+```bash
+cat > .git/hooks/post-commit << 'EOF'
+#!/bin/bash
+# Anchor the committed files in the background
+anchor commit --all &
+EOF
+
+chmod +x .git/hooks/post-commit
+```
+
+### One-liner Setup
+
+```bash
+echo '#!/bin/bash\nanchor commit --all --staged' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+Now every `git commit` = automatic Bitcoin timestamp. You don't even have to think about it.
 
 ---
 
