@@ -3,7 +3,7 @@
 [![CI](https://github.com/Stellanium/honest-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/Stellanium/honest-anchor/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/honest-anchor.svg)](https://pypi.org/project/honest-anchor/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE-AGPL)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **git commit, but to the universe.**
 
@@ -239,25 +239,17 @@ anchor commit -m "my idea"  → saved forever
 
 ## Pricing
 
-| Plan | Price | What you get |
-|------|-------|--------------|
-| **Free** | $0 | 10 files/month, CLI |
-| **Pro** | $9/mo | Unlimited files |
-| **Team** | $29/mo | 5 users, dashboard |
-| **Enterprise** | $99/mo | API, legal exports |
+**Free. Forever. MIT Licensed.**
 
-**Free forever for open source projects.**
+No limits. No restrictions. Use it however you want.
 
 ---
 
 ## License
 
-Dual licensed:
-- **AGPL-3.0** — Free for personal, academic, open source
-- **Commercial** — For SaaS and closed-source products
+MIT License - Use it however you want. Free forever.
 
 See [LICENSE](LICENSE) for details.
-Commercial inquiries: admin@stellanium.io
 
 ---
 

@@ -7,7 +7,7 @@ name = "honest-anchor"
 version = "0.1.1"
 description = "git commit for your IP - Timestamp your files to Bitcoin"
 readme = "README.md"
-license = {text = "AGPL-3.0 OR Commercial"}
+license = {text = "MIT"}
 authors = [
     {name = "Stellanium Ltd", email = "admin@stellanium.io"}
 ]
