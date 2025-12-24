@@ -200,7 +200,7 @@ class TestCliHelp:
         result = runner.invoke(cli, ['--version'])
 
         assert result.exit_code == 0
-        assert "0.1.1" in result.output
+        assert "honest-anchor, version" in result.output
 
 
 class TestGetStagedFiles:

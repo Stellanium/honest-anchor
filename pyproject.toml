@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "honest-anchor"
-version = "0.1.1"
+version = "0.2.1"
 description = "git commit for your IP - Timestamp your files to Bitcoin"
 readme = "README.md"
 license = {text = "MIT"}
@@ -33,6 +33,7 @@ dependencies = [
     "rich>=13.0.0",
     "opentimestamps-client>=0.7.0",
     "pyyaml>=6.0",
+    "honest-chain>=2.14.0",
 ]
 
 [project.scripts]

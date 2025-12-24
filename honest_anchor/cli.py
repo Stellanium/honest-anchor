@@ -42,7 +42,35 @@ ANCHOR_DIR = ".anchor"
 CONFIG_FILE = "config.yml"
 REGISTRY_FILE = "registry.json"
 PROOFS_DIR = "proofs"
-VERSION = "0.1.1"
+VERSION = "0.2.1"
+MAX_MESSAGE_LENGTH = 1024  # Security: limit message size
+MAX_FILES_TO_ANCHOR = 10000  # Security: prevent DoS from huge directories
+
+
+def sanitize_proof_filename(rel_path: str) -> str:
+    """
+    Sanitize a relative path to create a safe proof filename.
+
+    Security: Prevents path traversal attacks.
+
+    Args:
+        rel_path: Relative path like "src/main.py" or "../../../etc/passwd"
+
+    Returns:
+        Safe filename like "src_main.py" or "etc_passwd"
+    """
+    import re
+    # Remove any ".." components (path traversal)
+    parts = rel_path.replace("\\", "/").split("/")
+    safe_parts = [p for p in parts if p and p != ".." and p != "."]
+    # Join with underscore and remove any remaining dangerous characters
+    safe_name = "_".join(safe_parts)
+    # Only allow alphanumeric, underscore, hyphen, dot
+    safe_name = re.sub(r'[^a-zA-Z0-9_\-.]', '_', safe_name)
+    # Limit length
+    if len(safe_name) > 200:
+        safe_name = safe_name[:200]
+    return safe_name or "unnamed"
 
 console = Console() if RICH_AVAILABLE else None
 
@@ -132,10 +160,11 @@ def get_files_to_anchor(anchor_dir: Path) -> List[Path]:
         return []
 
     # Find the project root (parent of .anchor)
-    project_root = anchor_dir.parent
+    project_root = anchor_dir.parent.resolve()
 
     matched_files = set()
     exclude_patterns = []
+    files_scanned = 0
 
     for pattern in patterns:
         if pattern.startswith("!"):
@@ -144,16 +173,35 @@ def get_files_to_anchor(anchor_dir: Path) -> List[Path]:
         else:
             # Include pattern - walk through files
             for path in project_root.rglob("*"):
+                files_scanned += 1
+                # Security: Limit total files to prevent DoS
+                if files_scanned > MAX_FILES_TO_ANCHOR:
+                    warn(f"Too many files (>{MAX_FILES_TO_ANCHOR}). Consider narrowing auto_anchor patterns.")
+                    break
                 if path.is_file():
-                    rel_path = path.relative_to(project_root)
+                    # Security: Safe relative_to with try-except
+                    try:
+                        # Resolve symlinks and check path is within project
+                        resolved = path.resolve()
+                        if not resolved.is_relative_to(project_root):
+                            continue  # Skip files outside project (symlink escape)
+                        rel_path = resolved.relative_to(project_root)
+                    except (ValueError, OSError):
+                        continue  # Skip paths that can't be resolved
                     if fnmatch.fnmatch(str(rel_path), pattern) or fnmatch.fnmatch(path.name, pattern):
                         matched_files.add(path)
+            if files_scanned > MAX_FILES_TO_ANCHOR:
+                break
 
     # Remove excluded files
     for exclude in exclude_patterns:
         to_remove = set()
         for path in matched_files:
-            rel_path = path.relative_to(project_root)
+            try:
+                rel_path = path.resolve().relative_to(project_root)
+            except (ValueError, OSError):
+                to_remove.add(path)  # Remove paths that can't be resolved
+                continue
             if fnmatch.fnmatch(str(rel_path), exclude) or fnmatch.fnmatch(path.name, exclude):
                 to_remove.add(path)
         matched_files -= to_remove
@@ -341,6 +389,10 @@ def commit(files, anchor_all, staged, message):
     if not check_ots_installed():
         error_exit("OpenTimestamps not installed. Run: pip install opentimestamps-client")
 
+    # Security: Validate message length
+    if message and len(message) > MAX_MESSAGE_LENGTH:
+        error_exit(f"Message too long: {len(message)} chars (max {MAX_MESSAGE_LENGTH})")
+
     registry = load_registry(anchor_dir)
     proofs_dir = anchor_dir / PROOFS_DIR
 
@@ -372,7 +424,14 @@ def commit(files, anchor_all, staged, message):
         file_hash = sha256_file(path)
 
         # Check if already anchored with same hash
-        rel_path = str(path.relative_to(Path.cwd()) if path.is_absolute() else path)
+        # Security: Safe relative_to with fallback
+        try:
+            if path.is_absolute():
+                rel_path = str(path.resolve().relative_to(Path.cwd().resolve()))
+            else:
+                rel_path = str(path)
+        except (ValueError, OSError):
+            rel_path = str(path)  # Fallback to original path
         if rel_path in registry["files"]:
             existing = registry["files"][rel_path]
             if existing.get("hash") == file_hash:
@@ -389,8 +448,38 @@ def commit(files, anchor_all, staged, message):
             # Move .ots file to proofs directory
             ots_file = Path(str(path) + ".ots")
             if ots_file.exists():
-                dest = proofs_dir / (rel_path.replace("/", "_") + ".ots")
-                ots_file.rename(dest)
+                # Security: sanitize filename to prevent path traversal
+                safe_filename = sanitize_proof_filename(rel_path)
+                dest = proofs_dir / (safe_filename + ".ots")
+                # Double-check dest is within proofs_dir
+                if not dest.resolve().is_relative_to(proofs_dir.resolve()):
+                    rprint(f"[red]✗ Security: Invalid path for {rel_path}[/red]" if RICH_AVAILABLE else f"✗ Security: Invalid path")
+                    continue
+
+                # Security (v0.2.1): Atomic rename with symlink check
+                # Reject if source is a symlink (prevents symlink attacks)
+                if ots_file.is_symlink():
+                    rprint(f"[red]✗ Security: OTS file is a symlink: {ots_file}[/red]" if RICH_AVAILABLE else f"✗ Security: symlink rejected")
+                    try:
+                        ots_file.unlink()  # Remove the symlink
+                    except OSError:
+                        pass
+                    continue
+
+                try:
+                    import shutil
+                    shutil.move(str(ots_file), str(dest))
+                    # Post-move verification: ensure dest is not a symlink
+                    if dest.is_symlink():
+                        rprint(f"[red]✗ Security: Destination became symlink[/red]" if RICH_AVAILABLE else f"✗ Security error")
+                        try:
+                            dest.unlink()
+                        except OSError:
+                            pass
+                        continue
+                except (OSError, shutil.Error) as e:
+                    rprint(f"[red]✗ Failed to move OTS file: {e}[/red]" if RICH_AVAILABLE else f"✗ Move failed: {e}")
+                    continue
 
                 # Update registry
                 registry["files"][rel_path] = {
@@ -470,7 +559,14 @@ def verify(file):
 
     registry = load_registry(anchor_dir)
     path = Path(file)
-    rel_path = str(path.relative_to(Path.cwd()) if path.is_absolute() else path)
+    # Security: Safe relative_to with fallback
+    try:
+        if path.is_absolute():
+            rel_path = str(path.resolve().relative_to(Path.cwd().resolve()))
+        else:
+            rel_path = str(path)
+    except (ValueError, OSError):
+        rel_path = str(path)
 
     if rel_path not in registry["files"]:
         rprint(f"[yellow]File not anchored: {rel_path}[/yellow]" if RICH_AVAILABLE else f"File not anchored: {rel_path}")
@@ -549,7 +645,14 @@ def info(file):
 
     registry = load_registry(anchor_dir)
     path = Path(file)
-    rel_path = str(path.relative_to(Path.cwd()) if path.is_absolute() else path)
+    # Security: Safe relative_to with fallback
+    try:
+        if path.is_absolute():
+            rel_path = str(path.resolve().relative_to(Path.cwd().resolve()))
+        else:
+            rel_path = str(path)
+    except (ValueError, OSError):
+        rel_path = str(path)
 
     if rel_path not in registry["files"]:
         rprint(f"[yellow]File not anchored: {rel_path}[/yellow]" if RICH_AVAILABLE else f"File not anchored: {rel_path}")

@@ -5,6 +5,32 @@ All notable changes to Honest Anchor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-24
+
+### Security (HARDENING RELEASE)
+- **TOCTOU fix**: Atomic file rename with symlink rejection
+- **Path validation**: Safe `relative_to()` handling prevents ValueError crashes
+- **Glob limits**: Max 10,000 files to prevent DoS from huge directories
+- **Symlink protection**: Rejects symlinks in OTS file moves
+- Post-move verification ensures destination is not a symlink
+
+### Changed
+- Requires `honest-chain >= 2.14.0` (post-quantum signatures)
+
+## [0.2.0] - 2025-12-24
+
+### Added
+- `honest-chain >= 2.14.0` as dependency for post-quantum signature support
+- Combined timestamping (Bitcoin) + signing (Dilithium) capability
+
+### Changed
+- Updated README with honest-chain integration notice
+
+## [0.1.2] - 2025-12-19
+
+### Fixed
+- Minor bug fixes
+
 ## [0.1.1] - 2025-12-15
 
 ### Added

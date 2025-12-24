@@ -7,5 +7,5 @@ Prove prior art. Forever.
 © 2025 Stellanium Ltd. All rights reserved.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.1"
 __author__ = "Stellanium Ltd"

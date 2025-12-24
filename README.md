@@ -5,6 +5,8 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+> **v0.2.0:** Now includes [honest-chain](https://pypi.org/project/honest-chain/) for post-quantum signatures!
+
 **git commit, but to the universe.**
 
 Your code, carved in Bitcoin. Permanent. Public. Provable.
